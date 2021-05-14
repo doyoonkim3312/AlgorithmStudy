@@ -1,5 +1,7 @@
 package Kotlin
 
+import edu.princeton.cs.algs4.StdOut
+
 fun main(args: Array<String>) {
     println("KOTLIN")
     var result: Int = gcd(1111111, 1234567)
