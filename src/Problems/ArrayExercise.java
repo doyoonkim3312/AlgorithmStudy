@@ -5,7 +5,7 @@ public class ArrayExercise {
         boolean[][] list = new boolean[size][size];
         for (int row = 0; row < size; row++) {
             for (int col = 0; col < size; col++) {
-                if (gcd(row, col) == 1 && (row != 0 && col != 0)) {
+                if (gcd(row, col) == 1 && (row != 0 || col != 0)) {
                     list[row][col] = true;
                 } else {
                     list[row][col] = false;
@@ -26,9 +26,10 @@ public class ArrayExercise {
     }
 
     public static void main(String[] args) {
-        boolean[][] testList = booleansList(10);
-        for (int row = 0; row < 10; row++) {
-            for (int col = 0; col < 10; col++) {
+        boolean[][] testList = booleansList(5);
+        System.out.println("Length: " + testList.length);
+        for (int row = 0; row < testList.length; row++) {
+            for (int col = 0; col < testList.length; col++) {
                 System.out.print(testList[row][col] + "\t");
             }
             System.out.println("\n");
