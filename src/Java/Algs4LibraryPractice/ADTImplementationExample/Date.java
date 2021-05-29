@@ -50,23 +50,27 @@ public class Date {
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
+            // Null Checking
             return false;
         } else {
-            if (this.getClass() == obj.getClass()) {
-                return true;
+            // 1. Compare Reference Values.
+            if (this == obj) return true;
+
+            // 2. Compare Class Value using getClass() method. getClass() method ensures same reference value for
+            // all objects in any given class
+            if (this.getClass() != obj.getClass()) {
+                return false;
             }
+
+            // 3. Case argument to Date. (This casting procedure has to be succeed because of Step 2.
             Date target = (Date) obj;
-            if (this.day == target.day) {
-                return true;
-            }
-            if (this.month == target.month) {
-                return true;
-            }
-            if (this.year == target.year) {
-                return true;
-            }
+
+            // 4. Compare each instance variables.
+            if (this.day != target.day) return false;
+            if (this.month != target.month) return false;
+            if (this.year != target.year) return false;
         }
-        return false;
+        return true;
     }
 
     // Test Client
