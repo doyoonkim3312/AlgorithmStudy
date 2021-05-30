@@ -2,6 +2,10 @@ package Java.Algs4LibraryPractice.ADTImplementationExample;
 
 // General Implementation of Date API. (ADT to encapsulate dates)
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 public class Date {
     private final int month;
     private final int day;
@@ -17,6 +21,17 @@ public class Date {
         this.month = month;
         this.day = day;
         this.year = year;
+    }
+
+
+    /**
+     * Parse String value from user input and allocate each component to proper argument value.
+     * @param dateString Formatted String type Date value. (Example: MM/dd/YY)
+     * @return new Date object.
+     */
+    public static Date parseDate(String dateString) {
+        String[] temp = dateString.split("/");
+        return new Date(Integer.parseInt(temp[0]), Integer.parseInt(temp[1]), Integer.parseInt(temp[2]));
     }
 
     public int month() {
@@ -74,12 +89,17 @@ public class Date {
     }
 
     // Test Client
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+        /*
         int month = Integer.parseInt(args[0]);
         int day = Integer.parseInt(args[1]);
         int year = Integer.parseInt(args[2]);
+         Date date = new Date(month, day, year);
+         */
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        String userInput = br.readLine();
 
-        Date date = new Date(month, day, year);
+        Date date = Date.parseDate(userInput);
         Date test1 = new Date(5, 26, 2021);
         Date date2 = date;
         System.out.println("General Implementation:\n" + date.toString());
