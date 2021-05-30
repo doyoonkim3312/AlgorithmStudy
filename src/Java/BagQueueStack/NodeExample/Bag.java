@@ -1,6 +1,12 @@
 package Java.BagQueueStack.NodeExample;
 
 // Example of simple Bag structure using Singly Linked Node.
+/*
+    Iterable vs. Iterator
+    1. Iterable: An Iterable is a simple representation of a series of elements that can be iterated over. (DOESN'T HAVE
+    ANY ITERATION STATE)
+    2. Iterator: An Iterator is the object with ITERATION STATE.
+ */
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -11,9 +17,38 @@ import java.util.NoSuchElementException;
  * Simple Bag Structure Implementation.
  * @param <Item>
  */
-public class Bag<Item> implements Iterator<Item> {
+public class Bag<Item> implements Iterable<Item> {
     private int size;
     private Node<Item> current;
+
+    @Override
+    public Iterator<Item> iterator() {
+
+        class BagIterator<Item> implements Iterator<Item> {
+            private Node<Item> current;
+
+            public BagIterator(Node<Item> current) {
+                this.current = current;
+            }
+
+            @Override
+            public boolean hasNext() {
+                // Current is the one that updated as soon as next() method is executed.
+                return current != null;
+            }
+
+            @Override
+            public Item next() {
+                if (!hasNext()) throw new NoSuchElementException();
+                // print only data.
+                Item temp = current.data;
+                current = current.linkNode;
+                return temp;
+            }
+        }
+
+        return new BagIterator<>(this.current);
+    }
 
     private class Node<Item> {
         private Item data;
@@ -61,20 +96,7 @@ public class Bag<Item> implements Iterator<Item> {
         return size;
     }
 
-    @Override
-    public boolean hasNext() {
-        // Current is the one that updated as soon as next() method is executed.
-        return current != null;
-    }
 
-    @Override
-    public Item next() {
-        if (!hasNext()) throw new NoSuchElementException();
-        // print only data.
-        Item temp = current.data;
-        current = current.linkNode;
-        return temp;
-    }
 
     // Unit Test Client Code
     public static void main(String[] args) {
@@ -88,8 +110,8 @@ public class Bag<Item> implements Iterator<Item> {
         }
 
         System.out.println("Size: " + testList.size());
-        while (testList.hasNext()) {
-            System.out.println(testList.next());
+        for (String data: testList) {
+            System.out.println(data);
         }
     }
 }

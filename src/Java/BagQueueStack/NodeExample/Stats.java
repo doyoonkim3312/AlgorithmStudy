@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
+
 public class Stats {
     public static void main(String[] args) {
         Bag<Double> bag = new Bag<>();
@@ -13,20 +14,28 @@ public class Stats {
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         Iterator<String> inputIterator = br.lines().iterator();
         while (inputIterator.hasNext()) {
-            bag.add(Double.parseDouble(inputIterator.next()));
+            try {
+                bag.add(Double.parseDouble(inputIterator.next()));
+            } catch (NumberFormatException nfe) {
+                System.out.println("Empty String detected");
+                break;
+            } catch (NullPointerException npe) {
+                System.out.println("Null Value detected");
+                break;
+            }
         }
 
         double sum = 0.0;
-        while (bag.hasNext()) {
-            sum += bag.next();
+        for (Double value: bag) {
+            sum += value;
         }
         double mean = sum / bag.size();
 
         sum = 0.0;
-        while (bag.hasNext()) {
-            sum += Math.pow((bag.next() - mean), 2);
+        for (Double value: bag) {
+            sum += Math.pow((value - mean), 2);
         }
-        double stddev = Math.sqrt(sum);
+        double stddev = Math.sqrt(sum / (bag.size() - 1));
 
         System.out.println("MEAN: " + mean);
         System.out.println("STDDEV: " + stddev);
