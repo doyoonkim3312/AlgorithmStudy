@@ -56,7 +56,7 @@ public class Stack<Item> implements Iterable<Item> {
      * @return {@code true} if stack is empty, {@code false} if stack is not empty.
      */
     public boolean isEmpty() {
-        return this.size() != 0;
+        return this.size() == 0;
     }
 
     /**
