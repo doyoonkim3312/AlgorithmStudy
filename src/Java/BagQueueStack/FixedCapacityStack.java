@@ -1,16 +1,17 @@
 package Java.BagQueueStack;
 
-// Fixed Capacity LIFO Stack Implementation with resizing method.
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * Fixed Capacity Pushdown (LIFO) Stack Implementation with dynamic sizing implementation.
+ * @param <Item> Generic Representation.
+ */
 public class FixedCapacityStack<Item> implements Iterable<Item> {
-    private int stackSize;
-    private int index;
+    private int elementCount;
     private Item[] arr;
 
     /**
@@ -18,10 +19,9 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      * @param stackSize size of stack.
      */
     public FixedCapacityStack (int stackSize) {
-        this.stackSize = stackSize;
-        this.index = 0;
+        this.elementCount = 0;
         // Caution: Generic Array Creation is disallowed in Java; The error occurred by this type casting can be ignored.
-        arr = (Item[]) new Object[this.stackSize];
+        arr = (Item[]) new Object[stackSize];
     }
 
     /**
@@ -31,9 +31,9 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      * @exception StackOverflowError can be thrown, if the index exceeds assigned size of stack.
      */
     public void push(Item item) {
-        if (index > stackSize) throw new StackOverflowError();
-        if (index == arr.length) resize(2 * arr.length);
-        arr[index++] = item;
+        if (elementCount > arr.length) throw new StackOverflowError();
+        if (elementCount == arr.length) resize(2 * arr.length);
+        arr[elementCount++] = item;
     }
 
     /**
@@ -42,8 +42,16 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      * @exception StackOverflowError if index is smaller than 0.
      */
     public Item pop() {
-        if (index <= 0) throw new StackOverflowError();
-        return arr[--index];
+        if (elementCount <= 0) throw new StackOverflowError();
+        Item temp = arr[--elementCount];
+        /*
+            Loitering: Loitering is a term represents certain condition, which holding a reference to an item that is no
+            longer needed (no longer being accessed).
+         */
+        arr[elementCount] = null;   // Avoid Loitering;
+        // Dynamic Stack Resizing: Test Condition: whether the stack size is less than one-fourth the array size.
+        if (elementCount > 0 && elementCount == arr.length / 4) resize(arr.length / 2);
+        return temp;
     }
 
     /**
@@ -59,7 +67,7 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      * @return total number of times on stack.
      */
     public int size() {
-        return index;
+        return elementCount;
     }
 
     /**
@@ -67,7 +75,7 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      * @return current capacity of stack.
      */
     public int capacity() {
-        return stackSize - index;
+        return arr.length - elementCount;
     }
 
     /**
@@ -91,34 +99,59 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
      */
     @Override
     public Iterator<Item> iterator() {
+        return new FixedCapacityStackIterator();
+    }
 
-        class FixedCapacityStackIterator<Item> implements Iterator<Item> {
-            private final Item[] arr;
-            private int index;
+    // Nested Class for Iterator. Note: Nested class can access the instance variables of the enclosing class.
+    private class FixedCapacityStackIterator implements Iterator<Item> {
+        // Create Iterator object based on LIFO policy.
+        private int index = elementCount - 1;
 
-            public FixedCapacityStackIterator(Item[] arr) {
-                this.arr = arr;
-                this.index = 0;
-            }
-
-            @Override
-            public boolean hasNext() {
-                if (index >= arr.length) throw new IndexOutOfBoundsException();
-                if (arr[index] != null) return true;
-                return false;
-            }
-
-            @Override
-            public Item next() {
-                if (!hasNext()) throw new NoSuchElementException();
-                return arr[index++];
-            }
+        @Override
+        public boolean hasNext() {
+            return index >= 0;
         }
-        return new FixedCapacityStackIterator<>(this.arr);
+
+        @Override
+        public Item next() {
+            if (!hasNext()) throw new NoSuchElementException();
+            return arr[index--];
+        }
+
+        /**
+         * Remove operation is not supported, because interleaving iteration with operations that modify the data
+         * structure is best avoided.
+         * @exception UnsupportedOperationException when this operation is called.
+         */
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("Remove operation is not supported.")   ;
+        }
     }
 
     // Test Client
     public static void main(String[] args) throws IOException {
+        testClient2(args);
+    }
+
+    public static void testClient2(String[] args) throws IOException {
+        FixedCapacityStack<String> testStack = new FixedCapacityStack<>(10);
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        String[] inputArr = br.readLine().split(" ");
+
+        for (String s: inputArr) {
+            testStack.push(s);
+        }
+
+        Iterator<String> stackIterator = testStack.iterator();
+        while (stackIterator.hasNext()) {
+            System.out.print(stackIterator.next() + " ");
+        }
+        System.out.println();
+        System.out.println("Task Completed.");
+    }
+
+    public static void testClient1(String[] args) throws IOException {
         FixedCapacityStack<String> testStack = new FixedCapacityStack<>(50);
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         String[] inputArr = br.readLine().split(" ");
@@ -135,6 +168,5 @@ public class FixedCapacityStack<Item> implements Iterable<Item> {
 
         System.out.println("( " + testStack.size() + " left on stack)");
         System.out.println("Current Stack Capacity: " + testStack.capacity());
-
     }
 }
