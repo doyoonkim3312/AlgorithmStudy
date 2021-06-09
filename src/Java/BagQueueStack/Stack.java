@@ -3,6 +3,9 @@ package Java.BagQueueStack;
 // Simple Pushdown stack (typical stack) implementation.
 
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Scanner;
 
@@ -67,6 +70,8 @@ public class Stack<Item> implements Iterable<Item> {
         return this.size;
     }
 
+    public Item peek() { return current.data; }
+
     @Override
     public Iterator<Item> iterator() {
         return null;
@@ -74,6 +79,32 @@ public class Stack<Item> implements Iterable<Item> {
 
     // Test Client Code. - Dijkastra's Two-Stack Algorithm for Expression Evaluation.)
     public static void main(String[] args) {
+        try{
+            stackTest(args);
+        } catch (IOException ioe) {
+            System.out.println(Arrays.toString(ioe.getStackTrace()));
+        }
+    }
+
+    public static void stackTest(String[] args) throws IOException {
+        Stack<String> testStack = new Stack<>();
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        String[] inputString = br.readLine().split(" ");
+
+        for (String s: inputString) {
+            if (!s.equals("-")) {
+                testStack.push(s);
+            } else {
+                if (!testStack.isEmpty()) {
+                    System.out.print(testStack.pop() + " ");
+                }
+            }
+        }
+        System.out.println("(" + testStack.size() + " left on stack.");
+    }
+
+    public static void dijkstraTwoStackAlgorithm(String[] args) {
         Stack<String> operator = new Stack<>();
         Stack<Double> operand = new Stack<>();
 
