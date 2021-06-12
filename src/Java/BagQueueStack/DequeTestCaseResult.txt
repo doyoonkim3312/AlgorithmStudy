@@ -1,0 +1,113 @@
+***************
+Num: 0
+Current Deque Status: 
+START: 0
+END: 0
+Size: 1
+Is Empty?: false
+Deque: 
+0 
+***************
+
+***************
+Num: 1
+Current Deque Status: 
+START: 0
+END: 1
+Size: 2
+Is Empty?: false
+Deque: 
+0 1 
+***************
+
+***************
+Num: 2
+Current Deque Status: 
+START: 2
+END: 1
+Size: 3
+Is Empty?: false
+Deque: 
+2 0 1 
+***************
+
+***************
+Num: 3
+Current Deque Status: 
+START: 2
+END: 3
+Size: 4
+Is Empty?: false
+Deque: 
+2 0 1 3 
+***************
+
+***************
+Num: 4
+Current Deque Status: 
+START: 4
+END: 3
+Size: 5
+Is Empty?: false
+Deque: 
+4 2 0 1 3 
+***************
+
+***************
+Num: 5
+Current Deque Status: 
+START: 5
+END: 3
+Size: 6
+Is Empty?: false
+Deque: 
+5 4 2 0 1 3 
+***************
+
+***************
+Num: 6
+Current Deque Status: 
+START: 5
+END: 1
+Size: 5
+Is Empty?: false
+Deque: 
+5 4 2 0 1 
+***************
+
+***************
+Num: 7
+Current Deque Status: 
+START: 5
+END: 0
+Size: 4
+Is Empty?: false
+Deque: 
+5 4 2 0 
+***************
+
+***************
+Num: 8
+Current Deque Status: 
+START: 4
+END: 0
+Size: 3
+Is Empty?: false
+Deque: 
+4 2 0 
+***************
+
+***************
+Num: 9
+Current Deque Status: 
+START: 4
+END: 2
+Size: 2
+Is Empty?: false
+Deque: 
+4 2 
+***************
+
+
+
+TASK COMPLETED in 0.005s
