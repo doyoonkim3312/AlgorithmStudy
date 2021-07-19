@@ -1,7 +1,8 @@
 package coroutines
 
 /*
-    July 18, 2021
+    July 18, 2021 - Cancelling Coroutines.
+    July 19, 2021 - Timeout
  */
 
 import kotlinx.coroutines.*
@@ -21,7 +22,14 @@ fun main() {
     // cancellationExample()
     // cancellableComputation()
     // closingResourcesWithFinally()
-    nonCancellableBlock()
+    // nonCancellableBlock()
+    // timeoutExample()
+    // timeoutOrNullExample()
+    var cnt = 0
+    while (cnt < 10) {
+        asynchronousTimeoutExample()
+        cnt++
+    }
 }
 
 fun cancellationExample() = runBlocking {
@@ -106,6 +114,67 @@ fun nonCancellableBlock() = runBlocking {
     job.cancelAndJoin()
     println("Now I can quit.")
 }
+
+fun timeoutExample() = runBlocking {
+    try {
+        withTimeout(1300L) {
+            repeat(1000) {
+                println("job: I'm sleeping $it ...")
+                delay(500L)
+            }
+        }
+    } catch(e: TimeoutCancellationException) {  // TimeoutCancellationException is a child class of CancellationException.
+        println("job: This coroutine will be cancelled after 1s delay")
+        withContext (NonCancellable) {
+            delay(1000L)
+            println("job: Cancelled.")
+        }
+    }
+    println("main: Running coroutine has been cancelled.")
+}
+
+fun timeoutOrNullExample() = runBlocking {
+    val result = withTimeoutOrNull(1300L) {
+        repeat(3) {
+            println("job: I'm sleeping $it ...")
+            delay(500L)
+        }
+        println("job: Completed.")  // Job will be cancelled before it completes its task and produce this result.
+    }
+    println("main: Result is $result")
+}
+
+// Asynchronous Timeout and Resources
+var acquired = 0
+
+class Resource {
+    init {
+        acquired++
+    }
+    fun close() {
+        acquired--
+    }
+}
+
+fun asynchronousTimeoutExample() {
+    runBlocking {
+        repeat(100_000) {
+            launch {
+                var resource: Resource? = null
+                try {
+                    withTimeout(60) {
+                        delay(50)
+                        resource = Resource()
+                    }
+                } finally {
+                    resource?.close()
+                }
+            }
+        }
+    }
+    println(acquired)
+}
+//
 
 suspend fun concurrencyExample() = coroutineScope {
     val response = mutableListOf<Deferred<Int>>()
