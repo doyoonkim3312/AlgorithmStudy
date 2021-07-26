@@ -6,13 +6,15 @@ package coroutines
  */
 
 import kotlinx.coroutines.*
+import kotlin.ArithmeticException
 import kotlin.system.*
 
 fun main() {
     // sequentialByDefaultExample()
     // simpleConcurrentExample()   // Faster than invoking two functions sequentially.
     // lazilyStartedAsync()
-    structuredConcurrencyExample()
+    // structuredConcurrencyExample()
+    structuredConcurrencyCancellationExample()
 }
 
 suspend fun doSomethingUsefulOne(): Int {
@@ -32,6 +34,25 @@ suspend fun concurrentSum(): Int = coroutineScope {
     }
     val second = async {
         doSomethingUsefulTwo()
+    }
+    first.await() + second.await()
+}
+
+// Cancellation of Structured Concurrency
+suspend fun faildConcurrentSum(): Int = coroutineScope {
+    // Two coroutines will be started asynchronously.
+    val first = async<Int> {
+        // This try-catch statement will catch CancellationException.
+        try {
+            delay(Long.MAX_VALUE)   // Coroutine will takes extremely long time to process computation
+            15
+        } finally {
+            println("First Coroutine will be cancelled")
+        }
+    }
+    val second = async<Int> {
+        println("Second Coroutine will throw ArithmeticException.")
+        throw ArithmeticException()
     }
     first.await() + second.await()
 }
@@ -109,4 +130,13 @@ fun structuredConcurrencyExample() = runBlocking {
         println("Result: ${concurrentSum()}")
     }
     println("TASK COMPLETED in $time ms")
+}
+
+// Cancellation is always propagated through coroutines hierarchy.
+fun structuredConcurrencyCancellationExample() = runBlocking {
+    try {
+        faildConcurrentSum()
+    } catch (e: ArithmeticException) {
+        println("ArithmeticException has been thrown.")
+    }
 }
