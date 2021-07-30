@@ -6,6 +6,7 @@ package coroutines
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlin.coroutines.CoroutineContext
 
 fun main() {
     // simpleSequenceType().forEach { number -> println(number) }
@@ -14,7 +15,13 @@ fun main() {
     // coldStreamExample()
     // flowCancellationExample()
     // flowBuilderExample()
-    intermediateOperators()
+    // intermediateOperators()
+    // sizeLimitingOperatorExample()
+    // terminalOperatorsExample()
+    // sequentialOrderOfFlowProcessingExample()
+    flowContextExample()
+    println("==============================")
+    flowOnExample()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -110,7 +117,120 @@ suspend fun processRequest(request: Int): String {
 }
 
 fun intermediateOperators() = runBlocking {
+    // .map operator
     (1..3).asFlow()
         .map { value -> processRequest(value) } // Code inside of intermediate operator can call suspending function.
         .collect { response -> println(response) }
+
+    // .filter operator
+    (1..10).asFlow()
+        .filter { value -> value % 2 == 0 }
+        .collect { result -> println(result) }
+
+    // .transform operator
+    (1..3).asFlow()
+        .transform { request ->
+            emit("Making Request $request")
+            emit(processRequest(request))
+        }.collect { response -> println(response) }
+}
+
+// Size-limiting operators (.take())
+// Cancellation performed by .take() function involves Coroutine Cancellation, so all resource-management function (like
+// try-catch) works normally in this case.
+fun numbersInFlow(): Flow<Int> {
+    return flow<Int> {
+        // CancellationException will be thrown by .take() operator.
+            try {
+                emit(1)
+                emit(2) // .take() function limits execution of flow after second int value is emitted.
+                emit(3)
+            } finally {
+                println("Task Completed.")
+            }
+        }
+}
+
+fun sizeLimitingOperatorExample() = runBlocking {
+    numbersInFlow().take(2).collect { result -> println(result) }
+}
+
+// Terminal Operators
+fun terminalOperatorsExample() = runBlocking {
+    val testFlow: Flow<Int> = (1..5).asFlow().map { it * it }
+
+    val flowToList: List<Int> = testFlow.toList()
+
+    val flowToSet: Set<Int> = testFlow.toSet()
+
+    // .first() operator that emits only 'first' value in Flow. NoSuchElementException can be thrown if the Flow is empty.
+    val firstOperatorExample: Int = testFlow.first()
+
+    // .reduce operator
+    val reduceOperatorExample: Int = testFlow.reduce { accumulator, value -> accumulator + value }  // Sum
+
+    // .fold operator
+    // initial: initial value for operation.
+    // operation: declare operation performed.
+    val foldOperatorExample: Int = testFlow.fold(1 ,operation = {acc, value -> acc * value})
+
+    println(flowToList) // [1, 4, 9, 16, 25]
+
+    println(flowToSet)  // [1, 4, 9, 16, 25]
+
+    println(firstOperatorExample)   // 1
+
+    println(reduceOperatorExample)  // 55
+
+    println(foldOperatorExample)    // 14400 (initial: 1)
+                                    // 144000 (initial: 10)
+}
+
+// Flows are Sequential.
+// Each collection works directly in the coroutine that calls terminal operator.
+// EACH emitted value is processed by all the intermediate operators and passed to terminal operator.
+fun sequentialOrderOfFlowProcessingExample() = runBlocking {
+    (1..5).asFlow()
+        .filter {
+            println("Filter $it")
+            it % 2 == 0
+        }
+        .map {
+            println("Map $it")
+            "String $it"
+        }.collect { response -> println("Responses: $response") }
+}
+
+// Flow Context
+// By default, code in the flow builder runs in the context that is provided by a collector of the corresponding flow.
+fun simpleReturnsFlowWithLog(): Flow<Int> {
+    return flow {
+        log("Started Simple Flow with Log")
+        for (i in 1..5) {
+            emit(i)
+        }
+    }
+}
+
+fun flowContextExample() = runBlocking {
+    log("Main Coroutine Started.")
+    withContext(newSingleThreadContext("Thread for Flow")) {
+        simpleReturnsFlowWithLog().collect { response -> log("Collected $response") }
+    }
+}
+
+// flowOn() Operator: flowOn() function can be used to change the context of the flow emission in proper way.
+fun simpleEmitsValueInDifferentContext(): Flow<Int> {
+    return flow {
+        for (i in 1..5) {
+            delay(100L)
+            log("Emitting $i")
+            emit(i)
+        }
+    }.flowOn(Dispatchers.Default)
+}
+
+fun flowOnExample() = runBlocking {
+    log("Main Coroutine Started")
+    simpleEmitsValueInDifferentContext().collect { value -> log("Collected $value") }
 }
