@@ -7,6 +7,7 @@ package coroutines
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlin.coroutines.CoroutineContext
+import kotlin.system.measureTimeMillis
 
 fun main() {
     // simpleSequenceType().forEach { number -> println(number) }
@@ -19,9 +20,12 @@ fun main() {
     // sizeLimitingOperatorExample()
     // terminalOperatorsExample()
     // sequentialOrderOfFlowProcessingExample()
-    flowContextExample()
-    println("==============================")
-    flowOnExample()
+    // flowContextExample()
+    // println("==============================")
+    // flowOnExample()
+    // bufferOperatorExample()
+    // conflateOperatorExample()
+    collectLatestOperatorExample()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -223,14 +227,67 @@ fun flowContextExample() = runBlocking {
 fun simpleEmitsValueInDifferentContext(): Flow<Int> {
     return flow {
         for (i in 1..5) {
-            delay(100L)
+            delay(100L) // Computing in CPU-consuming way.
             log("Emitting $i")
             emit(i)
         }
-    }.flowOn(Dispatchers.Default)
+    }.flowOn(Dispatchers.Default)   // Right way to change context for CPU-consuming code in flow builder
+    // flowOn() operator creates another coroutine for an upstream flow when it has to change the Coroutine Dispatcher
+    // in its context.
 }
 
 fun flowOnExample() = runBlocking {
     log("Main Coroutine Started")
     simpleEmitsValueInDifferentContext().collect { value -> log("Collected $value") }
+}
+
+// Buffer Operator
+// Note: flowOn operator uses the same buffering mechanism when it has to change a CoroutineDispatcher, but buffer
+// operator can do the same thing without changing the execution context.
+fun simpleWithBufferOperator(): Flow<Int> = flow {
+    for (i in 1..3) {
+        delay(100L)
+        emit(i)
+    }
+}
+
+fun bufferOperatorExample() = runBlocking {
+    val time = measureTimeMillis {
+        simpleWithBufferOperator()
+            .buffer()
+            .collect { response ->
+                delay(300L)
+                log("Collected $response")
+            }
+    }
+    log("TASK COMPLETED in $time ms.")
+}
+
+// Conflate Operator
+// Instead of processing each values, conflate operator process ONLY most recent ones.
+fun conflateOperatorExample() = runBlocking {
+    val time = measureTimeMillis {
+        simpleWithBufferOperator()
+            .conflate()
+            .collect { response ->
+                delay(300L)
+                log("Collected $response")
+            }
+    }
+    log("TASK COMPLETED in $time ms.")
+}
+
+// xxxLatest operator family
+// Another way of speeding up the processing of flow. (cancel and restart a slow collector everytime a new value is emitted.
+// Ex. collectLatest -> Collecting only the most recent value.
+fun collectLatestOperatorExample() = runBlocking {
+    val time = measureTimeMillis {
+        simpleWithBufferOperator()
+            .collectLatest { response ->    // cancel and restart collector until it reaches its latest value.
+                log("Collect $response")    // New values are emitted every 100ms.
+                delay(300L) // Only the latest value will take 300ms to process.
+                log("Processed $response")
+            }
+    }
+    log("TASK COMPLETED in $time ms")
 }
