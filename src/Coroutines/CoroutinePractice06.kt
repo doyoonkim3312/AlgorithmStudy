@@ -25,7 +25,11 @@ fun main() {
     // flowOnExample()
     // bufferOperatorExample()
     // conflateOperatorExample()
-    collectLatestOperatorExample()
+    // collectLatestOperatorExample()
+    // zipOperatorExample()
+    // combineOperatorExample()
+    // flatMapConcatOperatorExample()
+    flatMapMergeOperatorExample()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -290,4 +294,67 @@ fun collectLatestOperatorExample() = runBlocking {
             }
     }
     log("TASK COMPLETED in $time ms")
+}
+
+// Composing Two Flow.
+// .zip() operator: compose corresponding values of two flows
+fun zipOperatorExample() = runBlocking {
+    val firstFlow: Flow<Int> = (1..3).asFlow()
+    val secondFlow: Flow<String> = flowOf("a", "b", "c")
+
+    // Compose corresponding values of two flows.
+    firstFlow.zip(secondFlow) { value1, value2 ->
+        "Composed Result: $value1 from first Flow, $value2 from second Flow"
+    }.collect { response ->
+        println("Collected: $response")
+    }
+}
+
+// .combine() operator
+// If flow represents the most recent value, composed value must be recomputed evey time a new value is emitted from flow.
+fun combineOperatorExample() = runBlocking {
+    // onEach{...} intermediate operator: Code inside of onEach{...} operator executed every time each value is
+    // processed.
+    val firstFlow: Flow<Int> = (1..3).asFlow().onEach { delay(300L) }
+    val secondFlow: Flow<String> = flowOf("a", "b", "c").onEach { delay(400L) }
+
+    val startTime = System.currentTimeMillis()
+
+    // Compose value by combine operator.
+    firstFlow.combine(secondFlow) { value1, value2 ->
+        "Combined $value1 and $value2"
+    }.collect { response ->
+        println("Collected $response at ${System.currentTimeMillis() - startTime} ms.")
+    }
+}
+
+// flattening flows
+fun requestFlow(i: Int): Flow<String> = flow {
+    emit("$i, First")
+    delay(500L)
+    emit("$i, Second")
+}
+
+// flatMapConcat
+// Concatenation Mode
+fun flatMapConcatOperatorExample() = runBlocking {
+    val startTime = System.currentTimeMillis()
+    (1..3).asFlow().onEach { delay(100L) }
+        .flatMapConcat { value ->
+            requestFlow(value)
+        }.collect { response ->
+            println("Collected $response at ${System.currentTimeMillis() - startTime} ms.")
+        }
+}
+
+// flatMapMerge
+// Concurrently process multiple flows and merge the result into a single flow. (Values are emitted as soon as possible)
+fun flatMapMergeOperatorExample() = runBlocking {
+    val startTime = System.currentTimeMillis()
+    (1..3).asFlow()
+        .flatMapMerge { value ->
+            requestFlow(value)
+        }.collect { response ->
+            println("Collected $response at ${System.currentTimeMillis() - startTime} ms.")
+        }
 }
