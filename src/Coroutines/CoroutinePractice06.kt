@@ -29,7 +29,12 @@ fun main() {
     // zipOperatorExample()
     // combineOperatorExample()
     // flatMapConcatOperatorExample()
-    flatMapMergeOperatorExample()
+    // flatMapMergeOperatorExample()
+    // flatMapLatestExample()
+    // handlingByTryCatch()
+    // exceptionThrownOnEmitterExample()
+    // emitOnExceptionExample()
+    catchingDeclarativelyExample()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -357,4 +362,85 @@ fun flatMapMergeOperatorExample() = runBlocking {
         }.collect { response ->
             println("Collected $response at ${System.currentTimeMillis() - startTime} ms.")
         }
+}
+
+// flatMapLatest
+// Collection of the previous flow is cancelled as soon as a new flow is emitted. (works similar to collectLatest)
+fun flatMapLatestExample() = runBlocking {
+    val startTime = System.currentTimeMillis()
+    (1..3).asFlow().onEach { delay(100) }
+        .flatMapLatest {
+            requestFlow(it)
+        }.collect { response ->
+            println("Collected $response at ${System.currentTimeMillis() - startTime} ms")
+        }
+}
+
+// Flow Exceptions
+// Flow exceptions can be thrown by an emitter or code inside the operators.
+fun simpleThrowsException(): Flow<String> {
+    return flow {
+        for (i in 1..3) {
+            println("Emitted $i")
+            emit(i)
+            }
+        }.map { value ->
+        check(value <= 1) { println("Crashed on value $value") }
+        "String $value"
+        }
+}
+
+fun handlingByTryCatch() = runBlocking {
+    try {
+        simpleReturnsFlow().collect { response ->
+            println(response)
+            check(response <= 1) { "Collected $response" }  // Throw an IllegalStateException.
+        }
+    } catch (e: Exception) {
+        println(e)
+    }
+}
+
+fun exceptionThrownOnEmitterExample() = runBlocking {
+    try {
+        simpleThrowsException().collect { response -> println("Collected $response") }
+    } catch (e: Exception) {
+        println("$e thrown.")
+        println(e.stackTrace)
+    }
+}
+
+// Emit on Exception (using catch operator).
+// Exceptions can be turned into emission of values using emit from the body of catch
+fun emitOnExceptionExample() = runBlocking {
+    simpleThrowsException()
+        // Handling exception without try-catch block. catch operator catches only UPSTREAM exceptions. (an exceptions
+        // from all the operators above catch, but not below it.)
+        .catch { e: Throwable -> emit("Crashed $e") }
+        .collect { response ->
+            println("Collected $response")
+        }
+
+    simpleReturnsFlow()
+        .catch { e: Throwable ->
+            println("Crashed on $e")
+            emit(9999)
+        }
+        .collect { response ->
+            check(response <= 1) { response }   // Exception on DOWNSTREAM will not be caught by catch operator.
+            println(response)
+        }
+}
+
+// Catching Declaratively
+// Declarative nature of the catch operator can be combined with a desire to handle all the exceptions. (Like example below.)
+// Collection of the flow in the example below must be triggered by a call to collect() without parameter.
+fun catchingDeclarativelyExample() = runBlocking {
+    simpleReturnsFlow()
+        .onEach { value ->
+            check(value <= 1) { println("Collected $value") }
+            println(value)
+        }
+        .catch { e: Throwable -> println("Caught $e") }
+        .collect()
 }
