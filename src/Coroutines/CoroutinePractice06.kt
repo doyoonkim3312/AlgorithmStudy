@@ -34,7 +34,10 @@ fun main() {
     // handlingByTryCatch()
     // exceptionThrownOnEmitterExample()
     // emitOnExceptionExample()
-    catchingDeclarativelyExample()
+    // catchingDeclarativelyExample()
+    // imperativeFinallyBlockExample()
+    // onCompletionOperatorExample()
+    foo()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -443,4 +446,46 @@ fun catchingDeclarativelyExample() = runBlocking {
         }
         .catch { e: Throwable -> println("Caught $e") }
         .collect()
+}
+
+// Flow Completion
+// Imperative Finally Block: Use finally block to execute an action upon collect completion.
+fun imperativeFinallyBlockExample() = runBlocking {
+    try {
+        simpleReturnsFlow().collect { response ->
+            println("Collected $response") }
+    } finally {
+        println("COMPLETED.")
+    }
+}
+
+// Declarative Handling - onCompletion{...} intermediate operator.
+// The code inside of onCompletion intermediate operator is invoked when the flow has completely collected.
+fun onCompletionOperatorExample() = runBlocking {
+    simpleReturnsFlow()
+        .onCompletion { println("COMPLETED!") }
+        .collect { response ->
+            println("Collected $response")
+        }
+
+    // onCompletion takes nullable Throwable parameter for lambda that can be used to determine whether the flow collection
+    // was completed normally or exceptionally.
+    simpleThrowsException()
+        .onCompletion { e: Throwable? -> if (e != null) println("Collection is completed exceptionally.") }
+        .catch { e: Throwable -> println("Caught Exception. $e") }
+        .collect { response ->
+            println("Collected $response")
+        }
+}
+
+fun foo() = runBlocking {
+    simpleReturnsFlow()
+        .onCompletion { e: Throwable? ->
+            if (e != null) println("Collection is completed exceptionally.")
+            else println(e)
+        }
+        .collect { response ->
+            check(response <= 1) { println("Exception has been caught.") }  // Exception thrown in downstream.
+            println("Collected $response")
+        }
 }
