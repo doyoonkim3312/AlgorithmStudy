@@ -37,7 +37,10 @@ fun main() {
     // catchingDeclarativelyExample()
     // imperativeFinallyBlockExample()
     // onCompletionOperatorExample()
-    foo()
+    // launchFlowWithOnEachAndCollect()
+    // launchInOperatorExample()
+    // cancelLaunchedFlowCollection()
+    cancellableOperatorExample()
 }
 
 // Sequence; Result of computing the numbers with come CPU-consuming blocking code.
@@ -478,7 +481,7 @@ fun onCompletionOperatorExample() = runBlocking {
         }
 }
 
-fun foo() = runBlocking {
+fun execptionOccurredinDownStream() = runBlocking {
     simpleReturnsFlow()
         .onCompletion { e: Throwable? ->
             if (e != null) println("Collection is completed exceptionally.")
@@ -487,5 +490,49 @@ fun foo() = runBlocking {
         .collect { response ->
             check(response <= 1) { println("Exception has been caught.") }  // Exception thrown in downstream.
             println("Collected $response")
+        }
+}
+
+// Launch Flow
+// onEach operator and terminal operator (.collect())
+// onEach operator can serve the role of addEventListener function. However, since the onEach is an intermediate operator,
+// proper terminal operator should be placed to collect the flow.
+fun events() : Flow<Int> = (1..3).asFlow().onEach { delay(300L) }
+
+fun launchFlowWithOnEachAndCollect() = runBlocking {
+    events()
+        .onEach { response -> println("Event $response Collected!") }   // onEach operator in placed
+        .collect()  // Collecting the Flow waits.
+    println("Completed.")
+}
+
+// launchIn() operator: launchIn is a terminal operator that launches a collection of flow in a separate coroutine.
+fun launchInOperatorExample() = runBlocking {
+    events()
+        .onEach { response -> log("Event $response Collected!") }
+        .launchIn(this)
+    log("Completed.")
+}
+
+// Cancellation of launched Flow Collection.
+// Since launchIn() operator returns a Job, coroutine cancellation and structured concurrency serve a role of
+// removeEventListener function.
+fun cancelLaunchedFlowCollection() = runBlocking {
+    log("Collection of Flow has been launched")
+    withTimeoutOrNull(350L) {
+        events().onEach { response -> log("Event $response Collected") }.launchIn(this)
+    }
+    log("Completed!")
+}
+
+// .cancellable() operator
+// In order to make busy flow cancellable, use .cancellable() operator, which fundamentally provides
+// .onEach{ currentCoroutineContext().ensureActive() }
+fun cancellableOperatorExample() = runBlocking {
+    (1..5).asFlow()
+        .onEach { this.ensureActive() }
+        .collect { response ->
+            if (response == 3) cancel()
+            println(response)
         }
 }
