@@ -5,14 +5,8 @@ package coroutines
  */
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.channels.produce
-import kotlinx.coroutines.flow.*
-import java.lang.IllegalStateException
-import kotlin.coroutines.CoroutineContext
 
 
 fun main() {
@@ -20,7 +14,9 @@ fun main() {
     // closeOperatorExample()
     // channelProducerExample()
     // pipelineExample()
-    fanOutExample()
+    // fanOutExample()
+    // fanInExample()
+    fanInExample2()
 }
 
 // Channel Basic
@@ -104,12 +100,13 @@ fun CoroutineScope.produceNumbers(): ReceiveChannel<Int> = produce {
 
 // Processors
 // Compare to consumeEach, for-loop is more suitable and safer to perform fan-out.
-fun CoroutineScope.launchProcessor(id: Int, stream: ReceiveChannel<Int>) = launch {
+fun CoroutineScope.launchProcessor(id: Int, stream: ReceiveChannel<Int>) = launch (Dispatchers.Default) {
     for (element in stream) {
-        println("Processor No.$id received $element from the channel")
+        log("Processor No.$id received $element from the channel")
     }
 }
 
+// Example of Fan-Out: Multiple coroutines may receive from the same channel, distributing work between themselves.
 fun fanOutExample() = runBlocking {
     val producer = produceNumbers()
     repeat(5) {
@@ -117,5 +114,45 @@ fun fanOutExample() = runBlocking {
                                         // the same channel.
     }
     delay(950L)
+    coroutineContext.cancelChildren()
+}
+
+// Fan-In: Similar to Fan-Out, Multiple coroutines may send to the same channel, distributing work between themselves.
+suspend fun sendString(channel: SendChannel<String>, string: String, time: Long) {
+    // This suspend function will repeatedly send same string in a specific duration.
+    while (true) {
+        delay(time)
+        channel.send(string)
+    }
+}
+
+fun fanInExample() = runBlocking {
+    val testChannel = Channel<String>()
+    launch { sendString(testChannel, "BOO", 200L) }
+    launch { sendString(testChannel, "FOO", 500L) }
+
+    // receive first 6
+    repeat(6) {
+        log("Element ${testChannel.receive()} received from the channel.")
+    }
+    coroutineContext.cancelChildren()
+}
+
+
+fun CoroutineScope.sendString(channel: SendChannel<String>, string: String, time: Long) = launch {
+    while (true) {
+        delay(time)
+        channel.send(string)
+    }
+}
+
+fun fanInExample2() = runBlocking {
+    val tempChannel = Channel<String>()
+    sendString(tempChannel, "Hail", 200L)
+    sendString(tempChannel, "Purdue", 500L)
+
+    repeat(6) {
+        log("Element ${tempChannel.receive()} received from the channel")
+    }
     coroutineContext.cancelChildren()
 }
