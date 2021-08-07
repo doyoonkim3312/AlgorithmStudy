@@ -16,7 +16,10 @@ fun main() {
     // pipelineExample()
     // fanOutExample()
     // fanInExample()
-    fanInExample2()
+    // fanInExample2()
+    // bufferedChannelExample()
+    // channelFIFOInvocationExample()
+    tickerChannelExample()
 }
 
 // Channel Basic
@@ -155,4 +158,85 @@ fun fanInExample2() = runBlocking {
         log("Element ${tempChannel.receive()} received from the channel")
     }
     coroutineContext.cancelChildren()
+}
+
+// Buffered Channel
+// Unlike Unbuffered Channel (aka Rendezvous), Buffered channel allows sender to send multiple elements before suspending.
+fun bufferedChannelExample() = runBlocking {
+    val bufferedChannel = Channel<Int>(4)   // Create Buffered Channel with 4 of its capacity.
+    // Create sender Coroutine
+    val sender = launch {
+        repeat(10) {
+            println("Sending Element $it")
+            bufferedChannel.send(it)    // send() will be suspended right after sending fourth element to the Channel.
+        }
+    }
+    // Wait 1s before canceling the sender.
+    delay(1000L)
+    sender.cancel()
+    
+    val receiver = launch {
+        // Receiver Clearly shows that Buffered Channel only has first four elements sent.
+        bufferedChannel.consumeEach { element ->
+            println("Element $element received from the Buffered Channel.")
+        }
+    }
+    delay(100L) // Cancel All the Child coroutines after 100ms
+    receiver.cancel()
+
+    coroutineContext.cancelChildren()
+}
+
+// Important Characteristic: Channels are FAIR.
+// Send and Receive operations to Channels are FAIR with respect to the order of their invocation from multiple coroutines.
+data class Ball(var hits: Int)
+
+suspend fun player(name: String, table: Channel<Ball>) {
+    for (ball in table) {   // Receive element from the Channel.
+        ball.hits++
+        println("$name $ball")
+        delay(300L)
+        table.send(ball)
+    }
+}
+
+fun channelFIFOInvocationExample() = runBlocking {
+    val table = Channel<Ball>() //Shared Channel.
+    launch { player("Ping", table) }    // Launch First Coroutine.
+    launch { player("Pong", table) }    // Launch Second Coroutine.
+    table.send(Ball(0)) // Send initial element to shared channel.
+    // Respect to FIFO order of invocation, "Ping" will first get initially sent element. Then, new 'Ball' element sent
+    // by Ping will be received by "Pong." (Looping during 1s.)
+    delay(1000L)    // Waits 1s.
+    coroutineContext.cancelChildren()
+}
+
+// Ticker Channel.
+// Ticker Channel is a special Rendezvous Channel that produce Kotlin.Unit evey time given delay passes since last
+// consumption from this channel.
+fun tickerChannelExample() = runBlocking {
+    val tickerChannel = ticker(delayMillis = 100L, initialDelayMillis = 0L) // Create New Ticker Channel.
+    var nextElement = withTimeoutOrNull(1L) { tickerChannel.receive() }
+    println("Initial Element is available immediately: $nextElement")
+
+    nextElement = withTimeoutOrNull(50L) { tickerChannel.receive() }
+    println("Next Element is not available 50ms after its last consumption: $nextElement")
+
+    nextElement = withTimeoutOrNull(55L) { tickerChannel.receive() }
+    println("Next Element is now ready to be received: $nextElement")   // Total 105ms passed after its last consumption.
+
+    // Emulate large consumption delays
+    println("Consume will be paused for 150ms.")
+    delay(150L)
+
+    nextElement = withTimeoutOrNull(1L) { tickerChannel.receive() }
+    println("Next Element is available immediately after large consumption delay: $nextElement")
+    
+    // IMPORTANT: Pause Between receive() calls is taken into account (next element will arrived faster.)
+    // after 150ms delay --> first receive call gets element immediately. (50ms left) So, next receive call gets
+    // next element in 50ms.
+    nextElement = withTimeoutOrNull(55L) { tickerChannel.receive()}
+    println("Next Element is ready in 50ms after consumption pauses in 150ms: $nextElement")
+
+    tickerChannel.cancel(CancellationException("No More Elements are needed."))
 }
