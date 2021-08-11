@@ -5,12 +5,15 @@ package coroutines
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.*
+import java.io.IOException
 
 fun main() {
     // exceptionHandlingUnderRootCoroutine()
     // coroutineExceptionHandlerExample()
     // cancellationExceptionIgnoredByHandler()
-    exceptionHandlingUnderParentChildRelationship()
+    // exceptionHandlingUnderParentChildRelationship()
+    // exceptionAggregationExample()
+    aggregationOfCancellationExceptionExample()
 }
 
 // Example of Exception Handling under ROOT coroutine.
@@ -113,6 +116,65 @@ fun exceptionHandlingUnderParentChildRelationship() = runBlocking {
             delay(10L)
             println("Second Child coroutine will throw ArithmeticException.")
             throw ArithmeticException() // Exception will be handled until all the children coroutines terminate.
+        }
+    }
+    parent.join()
+}
+
+// Exception Aggregation: "The first exception wins"
+fun exceptionAggregationExample() = runBlocking<Unit> {
+    // Exception Handler
+    val exceptionHandler = CoroutineExceptionHandler {_, e ->
+        println("Exception Handler got $e exception, with suppressed ${e.suppressed!!.contentToString()}")
+        // Parameter 'e' could be null, which possibly causes NPE, so Non-null asserted by !! operator is needed.
+    }
+
+    val parent = GlobalScope.launch(exceptionHandler) {
+        // First Child Coroutine.
+        launch {
+            try {
+                delay(Long.MAX_VALUE)   // Pretends this coroutine perform extremely complicated computation.
+                                        // This coroutine will cancelled when Second Child Coroutine throws IOException.
+            } finally {
+                throw ArithmeticException() // Throw ArithmeticException.
+                                            // This exception will be suppressed by IOException, which is thrown first.
+            }
+        }
+
+        // Second Child Coroutine.
+        launch {
+            delay(100L)
+            throw IOException() // Throw IOException (First Exception Thrown.)
+        }
+
+        delay(Long.MAX_VALUE)
+    }
+    parent.join()
+}
+
+// Exception Aggregation (2)
+// Cancellation Exceptions are transparent and unwrapped by default.
+fun aggregationOfCancellationExceptionExample() = runBlocking<Unit> {
+    // Coroutine Exception Handler
+    val exceptionHandler = CoroutineExceptionHandler {_, e ->
+        println("Exception Handler got $e exception.")
+    }
+
+    val parent = GlobalScope.launch(exceptionHandler) {
+        // Create Stack of Children coroutines.
+        val inner = launch {
+            launch {
+                launch {
+                    throw IOException() // The Original Exception.
+                }
+            }
+        }
+        try {
+            inner.join()    // Join all the stack of children coroutines. (When inner is cancelled by Original Exception,
+                            // all the stack of children coroutines will get cancelled.
+        } catch (e: CancellationException) {
+            println("Rethrowing CancellationException with original cause.")
+            throw e // CancellationException will be rethrown, yet the original exception gets to the handler.
         }
     }
     parent.join()
