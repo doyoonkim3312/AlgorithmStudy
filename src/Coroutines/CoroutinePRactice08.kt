@@ -13,7 +13,10 @@ fun main() {
     // cancellationExceptionIgnoredByHandler()
     // exceptionHandlingUnderParentChildRelationship()
     // exceptionAggregationExample()
-    aggregationOfCancellationExceptionExample()
+    // aggregationOfCancellationExceptionExample()
+    // supervisorJobExample()
+    // supervisorScopeExample()
+    exceptionHandlingInSupervisorScope()
 }
 
 // Example of Exception Handling under ROOT coroutine.
@@ -178,4 +181,82 @@ fun aggregationOfCancellationExceptionExample() = runBlocking<Unit> {
         }
     }
     parent.join()
+}
+
+// Supervision Job
+// SupervisorJob is similar to a regular Job with the only exception that cancellation is propagated only downwards
+// (Unidirectional)
+fun supervisorJobExample() = runBlocking<Unit> {
+    val supervisorJob = SupervisorJob()
+    with(CoroutineScope(coroutineContext + supervisorJob)) {
+        // Launch the first child coroutine. (Its exception will be ignored in this example.)
+        val firstChildCoroutine = launch(CoroutineExceptionHandler {_, _ -> }) {
+            println("The first child coroutine is failing.")
+            throw AssertionError()
+        }
+
+        // Launch the second child coroutine.
+        val secondChildCoroutine = launch {
+            firstChildCoroutine.join()
+
+            // Cancellation of the first child coroutine is not propagated to the second child coroutine.
+            println("The first child coroutine is cancelled with ${firstChildCoroutine.isCancelled}," +
+                    "but the second child coroutine is still alvie $isActive")
+            
+            try {
+                delay(Long.MAX_VALUE)
+            } finally {
+                // But the cancellation of the supervisor is propagated.
+                println("The second child coroutine is cancelled because the supervisor job is cancelled.")
+            }
+        }
+        firstChildCoroutine.join()  // Wait until first child coroutine fails & completes.
+        println("Cancelling the supervisor")
+        supervisorJob.cancel()
+        secondChildCoroutine.join()
+    }
+}
+
+// Supervision Scope
+// supervisorScope can be used for scoped concurrency. It propagates the cancellation in the one direction only and
+// and cancels all its children only if it failed itself.
+fun supervisorScopeExample() = runBlocking<Unit> {
+    try {
+        supervisorScope {
+            // launch the first child coroutine.
+            val child = launch {
+                try {
+                    println("This child is sleeping.")
+                    delay(Long.MAX_VALUE)
+                } finally {
+                    println("The child is cancelled.")
+                }
+            }
+            yield() // Give child a chance to execute.
+            println("Throwing an exception from the scope.")
+            throw AssertionError()  // supervisorScope will fail itself, and all its children coroutines will be cancelled.
+        }
+    } catch (e: AssertionError) {
+        println("Caught an Assertion Error.")
+    }
+}
+
+
+fun exceptionHandlingInSupervisorScope() = runBlocking {
+    // Create new Coroutine Exception Handler
+    val exceptionHandler = CoroutineExceptionHandler { _, e ->
+        println("Coroutine Exception Handler got $e exception.")
+    }
+
+    supervisorScope {
+        // Create child coroutine of SupervisorScope
+        val child = launch(exceptionHandler) {  // Every child should handle its exception by itself via the exception
+                                                // handling mechanism (Coroutine Exception Handler in this case.)
+                                                // it's because child's failure does not propagate to the parents.
+            println("The child throws an exception.")
+            throw AssertionError()
+        }
+        println("The scope is completing.")
+    }
+    println("The scope is completed.")
 }
