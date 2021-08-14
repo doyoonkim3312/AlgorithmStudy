@@ -5,13 +5,16 @@ package coroutines
  */
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
 
 fun main() {
     // possibleParallelismProblemExample()
     // threadSafeDataStructureExample()
-    threadConfinementExample()
+    // threadConfinementExample()
+    // threadConfinementCoarseGrained()
+    mutexUsageExample()
 }
 
 // Parallelism Problem in Kotlin Concurrency using Multi-Threading.
@@ -20,7 +23,7 @@ suspend fun massiveComputation(action: suspend() -> Unit) {
     val numOfCoroutines = 100   // Total number of coroutine would be launched.
     val numOfRepeatComputation = 1000   // Total number of repeated action.
 
-    val startTime = measureTimeMillis {
+    val time = measureTimeMillis {
         coroutineScope {
             repeat(numOfCoroutines) {
                 launch {
@@ -31,7 +34,7 @@ suspend fun massiveComputation(action: suspend() -> Unit) {
             }
         }
     }
-    println("${numOfCoroutines * numOfRepeatComputation} TASK COMPLETED in ${System.currentTimeMillis() - startTime}s")
+    println("${numOfCoroutines * numOfRepeatComputation} TASK COMPLETED in $time ms")
 }
 
 @Volatile   // @Volatile is a annotation in Kotlin which makes variable volatile. (Possible Solution for parallelism problem)
@@ -78,8 +81,10 @@ fun threadConfinementExample() = runBlocking {
     // launch massiveComputation
     withContext(Dispatchers.Default) {
         massiveComputation {
+            log("Massive Computation started.")
             // Confine each increment to designated thread.
             withContext(confinedThreadForCounter) {
+                log("Increment Started.")
                 // Switch context from multi-threaded Dispatchers.Default to designated single thread.
                 counter2++
             }
@@ -92,4 +97,49 @@ fun threadConfinementExample() = runBlocking {
 
     // This example works very slowly compare to other solutions, because each individual increment operation is switched
     // from the multi-threaded Dispatchers.Default context to designated single thread context.
+}
+
+// Thread Confinement Coarse-Grained
+// In practice, thread confinement is performed in large chunks are confined to a single thread.
+// Since there is no context change for each task, computation speed would be way more faster than a Fine-Grained.
+var counter3 = 0
+
+fun threadConfinementCoarseGrained() = runBlocking {
+    val confinedThreadForComputation = newSingleThreadContext("Confined Thread for Large Computation.")
+    // All the large chunks of computation would be confined to a single thread.
+    withContext(confinedThreadForComputation) {
+        massiveComputation {
+            counter3++
+        }
+    }
+    println("Counter = $counter3")
+    confinedThreadForComputation.close()
+}
+
+// Mutex
+// Mutex is an mutual exclusion solution, which protect all modifications of the shared state with a critical section
+// that is never executed concurrently.
+// SHARED MUTABLE STATE ---------LOCK///(Critical Section)///UNLOCK---------
+var counter4 = 0
+val mutex = Mutex()
+
+fun mutexUsageExample() = runBlocking {
+    // Launch massiveComputation with multi-threading
+    withContext(Dispatchers.Default) {
+        massiveComputation {
+            log("Is Mutex Currently Locked? 0 ${mutex.onLock}")
+            // Concept of how Mutex works.
+            // These mutex usage (line 130 - 137) can be replaced by .withLock extension function.
+            mutex.lock()
+            try {
+                //log("Is Mutex currently Locked? 1 ${mutex.isLocked}")
+                counter4++
+            } finally {
+                mutex.unlock()
+                log("Is Mutex Currently Locked? 2 ${mutex.onLock}")
+            }
+            //log("Is Mutex Currently Locked? 3 ${mutex.isLocked}")
+        }
+    }
+    println("Counter = $counter4")
 }
