@@ -5,6 +5,7 @@ package coroutines
  */
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
@@ -14,7 +15,8 @@ fun main() {
     // threadSafeDataStructureExample()
     // threadConfinementExample()
     // threadConfinementCoarseGrained()
-    mutexUsageExample()
+    // mutexUsageExample()
+    actorExample()
 }
 
 // Parallelism Problem in Kotlin Concurrency using Multi-Threading.
@@ -142,4 +144,37 @@ fun mutexUsageExample() = runBlocking {
         }
     }
     println("Counter = $counter4")
+}
+
+// Actor
+// Actor is an entity made up of a combination of coroutine, the state that is confined and encapsulated into this
+// coroutine, and a channel to communicate with other coroutines.
+sealed class Msg    // Message class that an actor is going to process.
+object IncrementCounter: Msg()  // One-way message to increment counter.
+class GetCounter(val response: CompletableDeferred<Int>) : Msg()    // a request with reply
+
+// Create Actor with .actor coroutine builder
+fun CoroutineScope.counterActor() = actor<Msg> {
+    var cnt = 0     // Actor Status.
+    for (msg in channel) {
+        when(msg) {
+            is IncrementCounter -> cnt++
+            is GetCounter -> msg.response.complete(cnt)
+        }
+    }
+}
+
+fun actorExample() = runBlocking {
+    val counter = counterActor()    // Create an Actor
+    withContext(Dispatchers.Default) {  // coroutine that sends increment counter to actor.
+        massiveComputation {
+            counter.send(IncrementCounter)
+        }
+    }
+
+    // send a message to get a counter value from an actor.
+    val response = CompletableDeferred<Int>()
+    counter.send(GetCounter(response))
+    println("Counter = ${response.await()}")
+    counter.close()
 }
