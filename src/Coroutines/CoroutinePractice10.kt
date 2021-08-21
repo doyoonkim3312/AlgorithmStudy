@@ -12,7 +12,8 @@ import kotlin.system.measureTimeMillis
 
 fun main() {
     // selectExpressionExample()
-    channelOnClosedExample()
+    // channelOnClosedExample()
+    onSendClauseExample()
 }
 
 // Select Expression
@@ -61,22 +62,25 @@ fun selectExpressionExample() = runBlocking {
 // Channel on Close
 // onReceive fails when the channel is closed, and onReceiveCatching clause can be used to perform a specific action
 // when the channel is closed.
+// onReceiveCatching method is a newly added, starting from Coroutines 1.5.0. (Currently, it is impossible to use
+// coroutines 1.5.0 library.)
 suspend fun selectFizzOrBuzz(channelA: ReceiveChannel<String>, channelB: ReceiveChannel<String>): String =
     select<String> {
         channelA.onReceive { value: String? ->
-            if (value != null) {
+            if (value != null && !channelA.isClosedForReceive) {
                 "Channel A -> $value"
             } else {
                 "Channel A is closed."
             }
         }
         channelB.onReceive { value: String? ->
-            if (value != null) {
+            if (value != null && !channelB.isClosedForReceive) {
                 "Channel B -> $value"
             } else {
                 "Channel B is closed."
             }
         }
+
     }
 
 fun channelOnClosedExample() = runBlocking {
@@ -91,5 +95,32 @@ fun channelOnClosedExample() = runBlocking {
         println(selectFizzBuzz(channelA, channelB))
     }
 
+    coroutineContext.cancelChildren()
+}
+
+// Selecting to Send
+// Select Expression has a onSend clause that can be used for good in combination with a biased nature of selection.
+fun CoroutineScope.produceInteger(side: SendChannel<Int>) = produce<Int> {
+    for (num in 1..10) {
+        delay(100L)
+        select<Unit> {
+            onSend(num) {}    // Send produced integer to a primary channel.
+            side.onSend(num) {} // Send value to a side channel when a consumer of primary channel cannot keep up with
+                                // it.
+        }
+    }
+}
+
+fun onSendClauseExample() = runBlocking {
+    val sideChannel = Channel<Int>()    // Instantiate Side Channel.
+    launch {    // This is extremely fast consumer of side channel.
+        sideChannel.consumeEach { value -> println("Side Channel has $value") }
+    }
+
+    produceInteger(sideChannel).consumeEach {   // Consumer of primary channel.
+        println("Consuming $it from Primary Channel")
+        delay(250L) // 250ms delay makes this consumer impossible to keep up with elements in primary channel.
+    }
+    println("TASK COMPLETED.")
     coroutineContext.cancelChildren()
 }
