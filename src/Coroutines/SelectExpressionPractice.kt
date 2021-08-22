@@ -13,7 +13,8 @@ fun main() {
     // selectExpressionExample()
     // channelOnClosedExample()
     // onSendClauseExample()
-    selectingDeferredValueExample()
+    // selectingDeferredValueExample()
+    switchOverChannelOfDeferredValueExample()
 }
 
 // Select Expression
@@ -157,4 +158,64 @@ fun selectingDeferredValueExample() = runBlocking {
     println(result)
     val countActiveCoroutines = list.count { it.isActive }  // Count remained coroutines that are still in active status.
     println("$countActiveCoroutines coroutines are still active.")
+}
+
+// Switch over a Channel of Deferred Values.
+// Channel Producer Function that consumes a channel of deferred String values, waits for each received deferred value
+// , but only until the next deferred value comes out or the channel is closed.
+@OptIn(ExperimentalCoroutinesApi::class)
+fun CoroutineScope.switchMapDeferreds(receiveChannel: ReceiveChannel<Deferred<String>>) = produce<String> {
+    var currentValue = receiveChannel.receive()
+    while(isActive) {
+        val nextValue = select<Deferred<String>?> {
+            receiveChannel.onReceiveCatching { update ->
+                update.getOrNull()
+            }
+            // Since "Slow" has not enough time to be processed, onAwait block below will not be executed when slow is
+            // passed to the 'currentValue'
+            currentValue.onAwait {value ->
+                println("Value has been produced by receiveChannel: $value")
+                send(value) // Send value that current deferred value has produced.
+                receiveChannel.receiveCatching().getOrNull()    // Use next deferred value retrieved from receiveChannel.
+            }
+        }
+
+        if (nextValue == null) {
+            println("Channel has been closed.")
+            break
+        } else {
+            currentValue = nextValue
+            println("CurrentValue = ${currentValue.await()}")
+        }
+    }
+}
+
+// Async Function that produces specified string after a specified time
+fun CoroutineScope.asyncStringProducer(string: String, time: Long) = async {
+    delay(time)
+    string
+}
+
+// Unit Testing function just launches a coroutine to print result of switchMapDeferreds and sends some test data to it.
+fun switchOverChannelOfDeferredValueExample() = runBlocking {
+    val channel  = Channel<Deferred<String>>()
+    // Launch iteration of channel produced by switchMapDeferreds.
+    launch {
+        for (element in switchMapDeferreds(channel)) {
+            println(element)    // Print each received String value.
+        }
+    }
+
+    // Send test Deferred<String> data to the channel.
+    channel.send(asyncStringProducer("BEGIN", 100L))
+    delay(200L)     // provide time for "BEGIN" to be processed.
+    channel.send(asyncStringProducer("Slow", 500L))
+    delay(100L)      // Provided time is not enough to process "slow"
+    channel.send(asyncStringProducer("Replace", 100L))
+    delay(500L)  // give it time before the last data.
+    channel.send(asyncStringProducer("END", 500L))
+    delay(1000L)    // Provide time to process last test data.
+
+    channel.close() // Close channel.
+    delay(500L) // Provide more time to process remained test data after channel is closed.
 }
